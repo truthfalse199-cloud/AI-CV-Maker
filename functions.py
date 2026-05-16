@@ -5,6 +5,12 @@ from docx import Document
 import google.generativeai as genai
 from fpdf import FPDF
 import streamlit as st
+import fitz
+import pytesseract
+from PIL import Image
+import tempfile
+import os
+import platform
 
 # ==================== KONFIGURASI API ====================
 # Ganti dengan API key Anda
@@ -13,14 +19,75 @@ genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel("gemini-3.1-flash-lite")
 
 # ==================== EKSTRAKSI FILE ====================
+# Set path Tesseract untuk Windows lokal
+if platform.system() == "Windows":
+    # Sesuaikan path dengan lokasi instalasi Tesseract di komputer Anda
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
 def extract_from_pdf(file) -> str:
-    """Ekstrak teks dari file PDF menggunakan pdfplumber"""
-    text = ""
-    with pdfplumber.open(file) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
+    """
+    Ekstrak teks dari PDF menggunakan 3 metode:
+    1. pdfplumber (untuk PDF digital)
+    2. PyMuPDF (fallback cepat)
+    3. OCR via pytesseract (untuk scanned PDF)
+    """
+    # Simpan file upload ke temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(file.getbuffer())
+        tmp_path = tmp_file.name
+
+    try:
+        # ===== METODE 1: pdfplumber =====
+        with pdfplumber.open(tmp_path) as pdf:
+            text = ""
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+            if text.strip():
+                return text.strip()
+
+        # ===== METODE 2: PyMuPDF (fitz) =====
+        doc = fitz.open(tmp_path)
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        doc.close()
+        if text.strip():
+            return text.strip()
+
+        # ===== METODE 3: OCR untuk scanned PDF =====
+        st.info("PDF tidak memiliki teks digital, mencoba OCR (membaca gambar)... Ini mungkin memakan waktu.")
+        doc = fitz.open(tmp_path)
+        text = ""
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            # Render halaman sebagai gambar dengan resolusi tinggi
+            zoom = 2.0
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            # OCR dengan bahasa Indonesia + Inggris
+            page_text = pytesseract.image_to_string(img, lang='ind+eng')
+            text += page_text + "\n"
+        doc.close()
+        
+        if text.strip():
+            return text.strip()
+        else:
+            return "Error: Tidak dapat mengekstrak teks dari PDF (mungkin file rusak atau password protected)."
+
+    except Exception as e:
+        return f"Error ekstraksi PDF: {str(e)}"
+    finally:
+        # Hapus temporary file
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+def extract_from_docx(file) -> str:
+    """Ekstrak teks dari file DOCX menggunakan python-docx"""
+    doc = Document(file)
+    text = "\n".join([para.text for para in doc.paragraphs])
     return text.strip()
 
 def extract_from_docx(file) -> str:
