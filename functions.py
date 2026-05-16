@@ -14,7 +14,7 @@ import platform
 
 # ==================== KONFIGURASI API ====================
 # Ganti dengan API key Anda
-GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+GOOGLE_API_KEY = "AIzaSyCU8ifb1xL61QJXsE4Mgv8dAaCqNPUBhes"
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel("gemini-3.1-flash-lite")
 
@@ -83,12 +83,6 @@ def extract_from_pdf(file) -> str:
         # Hapus temporary file
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
-
-def extract_from_docx(file) -> str:
-    """Ekstrak teks dari file DOCX menggunakan python-docx"""
-    doc = Document(file)
-    text = "\n".join([para.text for para in doc.paragraphs])
-    return text.strip()
 
 def extract_from_docx(file) -> str:
     """Ekstrak teks dari file DOCX menggunakan python-docx"""
