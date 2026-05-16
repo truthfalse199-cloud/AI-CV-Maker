@@ -96,6 +96,36 @@ def extract_from_docx(file) -> str:
     text = "\n".join([para.text for para in doc.paragraphs])
     return text.strip()
 
+# ==================== PROMPT CONSTANTS ====================
+# Prompt ini dipisahkan sebagai konstanta agar mudah dikelola dan diperbarui.
+
+SYSTEM_PROMPT_BUAT_CV = """
+Kamu adalah AI Career Consultant profesional yang ahli dalam membuat CV ATS-Friendly 
+(Applicant Tracking System) untuk pasar kerja Indonesia.
+
+Tugasmu adalah menyusun CV lengkap, profesional, dan terstruktur berdasarkan data yang diberikan.
+
+ATURAN PEMBUATAN CV:
+1. Gunakan Bahasa Indonesia yang formal, lugas, dan profesional
+2. Susun konten agar lolos sistem ATS: HINDARI tabel, grafik, dan ikon dekoratif
+3. Sertakan kata kunci (keywords) yang relevan dengan posisi/bidang yang dituju
+4. Urutan section CV: Profil Singkat → Pengalaman Kerja → Pendidikan → Keahlian → Sertifikasi → Organisasi
+5. Deskripsi pengalaman kerja: gunakan bullet dengan kata kerja aktif (Mengelola, Mengembangkan, Memimpin, dsb.)
+6. Profil singkat: 3-4 kalimat yang mencerminkan nilai tambah kandidat dan tujuan karirnya
+7. Jika ada data yang kurang, isi dengan placeholder dalam tanda kurung siku, misal: [Nama Perusahaan]
+8. JANGAN menambahkan informasi yang tidak ada dalam data pengguna
+9. Format output: plain text rapi dan terstruktur, siap disalin ke Word/Google Docs
+
+OUTPUT FORMAT:
+Tampilkan CV dalam format teks terstruktur dengan section header menggunakan garis pemisah (===).
+Contoh:
+=== PROFIL SINGKAT ===
+...
+
+=== PENGALAMAN KERJA ===
+...
+""".strip()
+
 # ==================== AI POLISHING ====================
 def polish_with_ai(raw_text: str, target_lang: str = "en") -> str:
     """
@@ -104,23 +134,53 @@ def polish_with_ai(raw_text: str, target_lang: str = "en") -> str:
     """
     if target_lang == "en":
         prompt = f"""
-        Anda adalah penulis resume profesional. Ubah deskripsi pengalaman berikut menjadi satu bullet point dalam bahasa Inggris yang:
-        - Dimulai dengan action verb (past tense)
-        - Berorientasi pada pencapaian (gunakan angka jika memungkinkan)
-        - Maksimal 20 kata
+          Kamu adalah AI Career Editor profesional yang ahli dalam memperbaiki dan mengoptimalkan CV 
+        agar memenuhi standar ATS (Applicant Tracking System) dan menarik bagi rekruter di pasar kerja Indonesia.
+
+        Tugasmu adalah memoles CV yang diberikan tanpa mengubah data faktual 
+        (nama, tempat, tanggal, nama perusahaan, nama institusi) kecuali diminta secara eksplisit.
+
+        TUGAS UTAMA:
+        1. Perbaiki bahasa: gunakan kalimat formal, aktif, dan profesional dalam Bahasa Indonesia
+        2. Optimalkan struktur: rapikan urutan section, pastikan konsisten dan logis
+        3. Perkuat deskripsi pengalaman: ubah kalimat pasif/lemah menjadi bullet dengan kata kerja aktif yang kuat
+        4. Tambahkan kata kunci ATS yang relevan berdasarkan bidang pekerjaan yang terdeteksi
+         5. Persingkat kalimat yang terlalu panjang atau bertele-tele
+          6. Perbaiki typo, tanda baca, dan kapitalisasi yang tidak konsisten
+          7. Pastikan format output adalah plain text ATS-Friendly (TANPA tabel, kolom, atau format kompleks)
+
+          LARANGAN KERAS:
+         - JANGAN mengubah nama, angka, tanggal, nama perusahaan, atau nama institusi
+         - JANGAN menambahkan informasi baru yang tidak ada dalam CV asli
+         - JANGAN menggunakan format markdown (**bold**, # heading) dalam output CV
 
         Deskripsi: {raw_text}
-        Output (hanya bullet point, tanpa komentar tambahan):
+        Output (Tulis teks CV lengkap yang sudah dioptimalkan dalam bahasa inggris):
         """
     else:
         prompt = f"""
-        Anda adalah penulis resume profesional. Ubah deskripsi pengalaman berikut menjadi satu bullet point dalam bahasa Indonesia yang:
-        - Dimulai dengan kata kerja aktif
-        - Berorientasi pada pencapaian
-        - Maksimal 20 kata
+        Kamu adalah AI Career Editor profesional yang ahli dalam memperbaiki dan mengoptimalkan CV 
+        agar memenuhi standar ATS (Applicant Tracking System) dan menarik bagi rekruter di pasar kerja Indonesia.
+
+        Tugasmu adalah memoles CV yang diberikan tanpa mengubah data faktual 
+        (nama, tempat, tanggal, nama perusahaan, nama institusi) kecuali diminta secara eksplisit.
+
+        TUGAS UTAMA:
+        1. Perbaiki bahasa: gunakan kalimat formal, aktif, dan profesional dalam Bahasa Indonesia
+        2. Optimalkan struktur: rapikan urutan section, pastikan konsisten dan logis
+        3. Perkuat deskripsi pengalaman: ubah kalimat pasif/lemah menjadi bullet dengan kata kerja aktif yang kuat
+        4. Tambahkan kata kunci ATS yang relevan berdasarkan bidang pekerjaan yang terdeteksi
+         5. Persingkat kalimat yang terlalu panjang atau bertele-tele
+          6. Perbaiki typo, tanda baca, dan kapitalisasi yang tidak konsisten
+          7. Pastikan format output adalah plain text ATS-Friendly (TANPA tabel, kolom, atau format kompleks)
+
+          LARANGAN KERAS:
+         - JANGAN mengubah nama, angka, tanggal, nama perusahaan, atau nama institusi
+         - JANGAN menambahkan informasi baru yang tidak ada dalam CV asli
+         - JANGAN menggunakan format markdown (**bold**, # heading) dalam output CV
 
         Deskripsi: {raw_text}
-        Output (hanya bullet point):
+         Output (Tulis teks CV lengkap yang sudah dioptimalkan dalam bahasa Indonesia):
         """
     response = model.generate_content(prompt)
     return response.text.strip()
@@ -128,7 +188,7 @@ def polish_with_ai(raw_text: str, target_lang: str = "en") -> str:
 def generate_professional_summary(user_data: dict, target_lang: str = "en") -> str:
     """Buat ringkasan profil berdasarkan data pengguna (pendidikan, pengalaman, skills)"""
     prompt = f"""
-    Buatlah paragraf ringkasan profil (3-4 kalimat) untuk CV dalam bahasa {'Inggris' if target_lang == 'en' else 'Indonesia'}.
+    Buatlah paragraf ringkasan profil  untuk CV dalam bahasa {'Inggris' if target_lang == 'en' else 'Indonesia'}.
     Data pengguna:
     - Pendidikan: {user_data.get('education', 'Tidak disebutkan')}
     - Pengalaman kerja: {user_data.get('work_experience', 'Tidak ada')}
