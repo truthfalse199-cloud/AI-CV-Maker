@@ -14,7 +14,7 @@ import platform
 
 # ==================== KONFIGURASI API ====================
 # Ganti dengan API key Anda
-GOOGLE_API_KEY = "AIzaSyCU8ifb1xL61QJXsE4Mgv8dAaCqNPUBhes"
+GOOGLE_API_KEY = ""
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel("gemini-3.1-flash-lite")
 
